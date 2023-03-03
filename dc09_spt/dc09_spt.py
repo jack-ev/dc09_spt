@@ -3,6 +3,10 @@
 # (c 2018 van Ovost Automatisering b.v.
 # Author : Jacq. van Ovost
 # ----------------------------
+
+# ----------------------------
+# Modified : Eugene Egorov (fork https://github.com/jack-ev/dc09_spt)
+# ----------------------------
 from dc09_spt.msg.dc09_msg import *
 from dc09_spt.msg.dc05_msg import *
 from dc09_spt.msg.dc03_msg import *
@@ -260,7 +264,7 @@ class dc09_spt:
         extra = dc09_msg.dc09_extra(mparam)
         if extra is not None:
             msg = msg + extra
-        tup = self.msg_nr, dc09type, msg
+        tup = self.msg_nr, dc09type, msg, 1
         logging.debug('Message queued nr %s type %s content "%s"', self.msg_nr, dc09type, msg)
         self.queuelock.acquire()
         self.queue.append(tup)
@@ -359,7 +363,7 @@ class dc09_spt:
                             ret = True
                 except Exception as e:
                     logging.error("Answer decode error %s", repr(e))
-            logging.debug('Sent message nr %s mtype %s content %s to %s port %s answer %s', msg_nr, mtype, message,
+            logging.info('Sent message nr %s mtype %s content %s to %s port %s answer %s', msg_nr, mtype, message,
                           path.host, path.port, antw)
         if conn is not None:
             conn.disconnect()
@@ -503,7 +507,7 @@ class poll_thread(threading.Thread):
                 else:
                     self.main_poll_ok = True
                     self.main_ok = True
-                    self.main_poll_next = now + self.main_poll
+                    self.main_poll_next = (now + self.main_poll) if self.main_poll is not None else 0
             # ---------------
             # backup poll 
             # also triggered when main poll failed 
@@ -532,7 +536,7 @@ class poll_thread(threading.Thread):
                 else:
                     self.backup_poll_ok = True
                     self.backup_ok = True
-                    self.backup_poll_next = now + self.backup_poll
+                    self.backup_poll_next = (now + self.backup_poll) if self.backup_poll is not None else 0
             if self.main_poll is not None and main_polled and (self.backup_poll is None or backup_polled):
                 first = False
             # -----------------
@@ -563,7 +567,7 @@ class poll_thread(threading.Thread):
                 mtype = msg['type']
             else:
                 if 'code' in msg:
-                    code = msg['code']
+                    code = str(msg['code'])
                     if len(code) == 3:
                         mtype = 'ADM-CID'
                         if ok:
@@ -646,15 +650,18 @@ class event_thread(threading.Thread):
         self.queuelock = queuelock
         self.tpaths = tpaths
         self.tpaths_lock = tpaths_lock
-        self.send_retry_delay = 0.5
+        self.send_retry_delay = 20 #TODO: set delay between attempts via params
+        self.send_retry_attempts = 3 #TODO: set retry attempts count via params
         self.parent = parent
         self.running = False
+        self.started = False
 
     # -----------------
     # send events while needed (call in thread)
     # checks message queue and retries
     # ------------------
     def run(self):
+        self.started = True
         while len(self.queue) > 0:
             # --------------------
             # first handle queue
@@ -705,12 +712,24 @@ class event_thread(threading.Thread):
                             self.tpaths_lock.acquire()
                             self.tpaths[mb][ps]['ok'] = 1
                             self.tpaths_lock.release()
+        
+        current_attempt = mess[3]
         if not msg_sent:
+            if current_attempt + 1 > self.send_retry_attempts:
+                self.running = False
+                logging.error('No ACK received for the message %s', mess[2])
+                raise max_retry_attempts_reached('No ACK received for the message', mess[2])
             self.queuelock.acquire()
-            tup = mess[0], mess[1], mess[2]
+            tup = mess[0], mess[1], mess[2], current_attempt + 1
             self.queue.appendleft(tup)
             self.queuelock.release()
         return msg_sent
 
     def active(self):
         return self.running
+
+class max_retry_attempts_reached(Exception):
+    def __init__(self, text, message):
+        Exception.__init__(self, message)
+        self.message = message
+        self.text = text

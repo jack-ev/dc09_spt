@@ -3,6 +3,10 @@
 # (c 2018 van Ovost Automatisering b.v.
 # Author : Jacq. van Ovost
 # ----------------------------
+
+# ----------------------------
+# Modified : Eugene Egorov (fork https://github.com/jack-ev/dc09_spt)
+# ----------------------------
 import time
 from dc09_spt.param import *
 import logging
@@ -36,7 +40,7 @@ class dc03_codes:
         """
         codes_with_user = {"BC", "CE", "CF", "CJ", "CK", "CL", "CP", "CQ", "CR", "DA", "DB", "EE",
                            "JD", "JH", "JK", "JP", "JS", "JT", "JV", "JX", "JY", "JZ", "OC", "OH", "OJ", "OK", "OL",
-                           "OP", "OQ", "OR", "OT", "RX"}
+                           "OP", "OQ", "OR", "OT", "RX", "HA", "HR"}
         return code in codes_with_user
 
     @staticmethod

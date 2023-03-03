@@ -3,6 +3,10 @@
 # (c 2018 van Ovost Automatisering b.v.
 # Author : Jacq. van Ovost
 # ----------------------------
+
+# ----------------------------
+# Modified : Eugene Egorov (fork https://github.com/jack-ev/dc09_spt)
+# ----------------------------
 import datetime
 import random
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -232,6 +236,8 @@ class dc09_msg:
                     the mac address of the network interface in string format
                 'verification'
                     an internet or intranet adress to access alarm verification information e.g. a camera
+                'alarmtext'
+                    alarm text which may be a description of the event or a comment regarding the event
         """
         extra = ''
         if 'lon' in params:
@@ -242,3 +248,6 @@ class dc09_msg:
             extra += '[M' + params['mac'] + ']'
         if 'verification' in params:
             extra += '[V' + params['verification'] + ']'
+        if 'alarmtext' in params:
+            extra += '[I' + params['alarmtext'] + ']'
+        return extra
